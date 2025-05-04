@@ -3,7 +3,7 @@ const config = {
     API_URL: "http://localhost:3000/api"
   },
   production: {
-    API_URL: import.meta.env.VITE_API_URL || "https://techno-hack-vercel.vercel.app/"
+    API_URL: import.meta.env.VITE_API_URL || "https://techno-hack-vercel.vercel.app"
   }
 };
 

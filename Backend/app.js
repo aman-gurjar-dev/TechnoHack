@@ -15,13 +15,15 @@ const app = express();
 // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === "production" 
-    ? process.env.FRONTEND_URL || "https://your-production-frontend-url.com"
+    ? "https://techno-hack-vercel-frontend.vercel.app"
     : true, // Allow all origins in development
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   exposedHeaders: ["Content-Range", "X-Content-Range"],
-  maxAge: 600
+  maxAge: 600,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 // Middleware

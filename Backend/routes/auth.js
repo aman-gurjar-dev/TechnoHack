@@ -8,7 +8,7 @@ const auth = require("../middleware/auth");
 // Register user
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, adminKey } = req.body;
     console.log("Registration request received:", { name, email, role }); // Debug log
 
     // Check if user already exists
@@ -18,6 +18,16 @@ router.post("/register", async (req, res) => {
         success: false,
         message: "User already exists",
       });
+    }
+
+    // Verify admin key if registering as admin
+    if (role === "admin") {
+      if (!adminKey || adminKey !== process.env.ADMIN_KEY) {
+        return res.status(403).json({
+          success: false,
+          message: "Invalid admin key",
+        });
+      }
     }
 
     // Hash password

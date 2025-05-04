@@ -13,6 +13,7 @@ const Register = () => {
     email: "",
     password: "",
     confirmPassword: "",
+    adminKey: "",
   });
 
   const handleInputChange = (e) => {
@@ -34,6 +35,7 @@ const Register = () => {
         email: formData.email,
         password: formData.password,
         role: isAdmin ? "admin" : "user",
+        adminKey: isAdmin ? formData.adminKey : undefined,
       });
 
       toast.success("Registration successful! Please login.");
@@ -47,12 +49,26 @@ const Register = () => {
 
   const handleAdminRegister = () => {
     setIsAdmin(true);
-    setFormData({
-      name: "Admin User",
-      email: "admin@example.com",
-      password: "admin123",
-      confirmPassword: "admin123",
-    });
+    setFormData(prev => ({
+      ...prev,
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      adminKey: "",
+    }));
+  };
+
+  const handleRegularRegister = () => {
+    setIsAdmin(false);
+    setFormData(prev => ({
+      ...prev,
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      adminKey: "",
+    }));
   };
 
   return (
@@ -102,7 +118,6 @@ const Register = () => {
                 id="email"
                 name="email"
                 type="email"
-                autoComplete="email"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Email address"
@@ -118,7 +133,6 @@ const Register = () => {
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="new-password"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Password"
@@ -134,7 +148,6 @@ const Register = () => {
                 id="confirmPassword"
                 name="confirmPassword"
                 type="password"
-                autoComplete="new-password"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Confirm Password"
@@ -142,47 +155,44 @@ const Register = () => {
                 onChange={handleInputChange}
               />
             </div>
+            {isAdmin && (
+              <div>
+                <label htmlFor="adminKey" className="sr-only">
+                  Admin Key
+                </label>
+                <input
+                  id="adminKey"
+                  name="adminKey"
+                  type="password"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Admin Key"
+                  value={formData.adminKey}
+                  onChange={handleInputChange}
+                />
+              </div>
+            )}
           </div>
 
-          <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              <button
+                type="button"
+                onClick={isAdmin ? handleRegularRegister : handleAdminRegister}
+                className="font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                {isAdmin ? "Register as User" : "Register as Admin"}
+              </button>
+            </div>
+          </div>
+
+          <div>
             <button
               type="submit"
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
-              {loading ? (
-                <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                  <svg
-                    className="animate-spin h-5 w-5 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                </span>
-              ) : null}
               {loading ? "Registering..." : "Register"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleAdminRegister}
-              className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              Register as Admin
             </button>
           </div>
         </form>

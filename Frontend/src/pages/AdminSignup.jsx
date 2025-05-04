@@ -39,12 +39,7 @@ const AdminSignup = () => {
         throw new Error("Passwords do not match");
       }
 
-      // Verify admin key (in production, this should be handled securely on the backend)
-      if (formData.adminKey !== "ADMIN2024") {
-        throw new Error("Invalid admin key");
-      }
-
-      const response = await fetch("http://localhost:3000/api/auth/register", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -57,6 +52,7 @@ const AdminSignup = () => {
           organization: formData.organization,
           designation: formData.designation,
           role: "admin",
+          adminKey: formData.adminKey,
         }),
       });
 
@@ -64,7 +60,8 @@ const AdminSignup = () => {
         toast.success("Admin registration successful! Please login.");
         navigate("/login");
       } else {
-        throw new Error("Registration failed");
+        const data = await response.json();
+        throw new Error(data.message || "Registration failed");
       }
     } catch (error) {
       toast.error(error.message || "Registration failed");

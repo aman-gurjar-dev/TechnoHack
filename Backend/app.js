@@ -14,7 +14,9 @@ const app = express();
 
 // CORS configuration
 app.use(cors({
-  origin: true, // Allow all origins in development
+  origin: process.env.NODE_ENV === "production" 
+    ? process.env.FRONTEND_URL || "https://your-production-frontend-url.com"
+    : true, // Allow all origins in development
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],

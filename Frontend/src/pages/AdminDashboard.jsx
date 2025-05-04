@@ -21,6 +21,7 @@ import { Bar, Pie, Line } from "react-chartjs-2";
 import "chart.js/auto";
 import { toast } from "react-hot-toast";
 import { authService } from "../services/authService";
+import config from "../config";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -69,7 +70,7 @@ const AdminDashboard = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/events");
+      const response = await fetch(`${config.API_URL}/events`);
       const data = await response.json();
       setEvents(data.events || []);
     } catch (error) {
@@ -160,7 +161,7 @@ const AdminDashboard = () => {
         image: eventData.image ? eventData.image.name : null,
       });
 
-      const response = await fetch("http://localhost:3000/api/events", {
+      const response = await fetch(`${config.API_URL}/events`, {
         method: "POST",
         body: formData,
         credentials: "include",
@@ -199,7 +200,7 @@ const AdminDashboard = () => {
     if (window.confirm("Are you sure you want to delete this event?")) {
       try {
         const response = await fetch(
-          `http://localhost:3000/api/events/${eventId}`,
+          `${config.API_URL}/events/${eventId}`,
           {
             method: "DELETE",
           }
@@ -684,7 +685,7 @@ const AdminDashboard = () => {
                   <div className="flex items-center">
                     <img
                       className="h-10 w-10 rounded-full object-cover"
-                      src={`http://localhost:3000${event.image}`}
+                      src={`${config.API_URL}${event.image}`}
                       alt={event.title}
                     />
                     <div className="ml-4">

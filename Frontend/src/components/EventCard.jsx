@@ -1,11 +1,12 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import config from "../config";
 
 const EventCard = ({ event }) => {
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       <img
-        src={`http://localhost:3000${event.image}`}
+        src={`${config.API_URL}${event.image}`}
         alt={event.title}
         className="w-full h-48 object-cover rounded-t-lg"
       />

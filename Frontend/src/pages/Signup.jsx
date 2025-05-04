@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import bg2 from "../assets/bg2.png";
+import config from "../config";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ const Signup = () => {
     setSuccess("");
 
     try {
-      const response = await fetch("http://localhost:3000/api/auth/register", {
+      const response = await fetch(`${config.API_URL}/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast";
 import one from "../assets/Events/IEEE-scaled.png";
 import two from "../assets/Events/IEEE-scaled (1).png";
 import second from "../assets/My Clubs/Rectangle 44.png";
+import config from "../config";
 
 const EventsRight = () => {
   const [activeTab, setActiveTab] = useState("upcoming");
@@ -144,7 +145,7 @@ const EventsRight = () => {
             }`}
           >
             <img
-              src={`http://localhost:3000${event.image}`}
+              src={`${config.API_URL}${event.image}`}
               alt={event.title}
               className="rounded-t-3xl w-full h-40 sm:h-48 object-cover"
             />

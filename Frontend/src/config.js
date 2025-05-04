@@ -3,8 +3,8 @@ const config = {
     API_URL: "http://localhost:3000/api"
   },
   production: {
-    API_URL: process.env.REACT_APP_API_URL || "https://your-production-backend-url.com/api"
+    API_URL: import.meta.env.VITE_API_URL || "https://your-production-backend-url.com/api"
   }
 };
 
-export default process.env.NODE_ENV === "production" ? config.production : config.development; 
+export default import.meta.env.MODE === "production" ? config.production : config.development; 

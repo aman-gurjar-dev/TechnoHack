@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import bg2 from "../assets/bg2.png";
 import config from "../config";
+import axios from "axios";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -17,14 +18,16 @@ const Signup = () => {
     setSuccess("");
 
     try {
-      const response = await fetch(`${config.API_URL}/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, email, password }),
-        credentials: "include",
-      });
+      const response = await axios.post(
+        `${config.API_URL}/auth/register`,
+        { name, email, password },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          withCredentials: true,
+        }
+      );
 
       const data = await response.json();
       if (response.ok && data.success) {

@@ -4,6 +4,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const auth = require("../middleware/auth");
+const mongoose = require("mongoose");
 
 // Register user
 router.post("/register", async (req, res) => {
@@ -20,8 +21,27 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    // Check if user already exists
-    let user = await User.findOne({ email });
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      console.error("MongoDB not connected. Current state:", mongoose.connection.readyState);
+      return res.status(503).json({
+        success: false,
+        message: "Database connection not ready. Please try again.",
+      });
+    }
+
+    // Check if user already exists with timeout
+    let user;
+    try {
+      user = await User.findOne({ email }).maxTimeMS(5000);
+    } catch (findError) {
+      console.error("Error finding user:", findError);
+      return res.status(503).json({
+        success: false,
+        message: "Database operation timed out. Please try again.",
+      });
+    }
+
     if (user) {
       console.log("User already exists:", email);
       return res.status(400).json({

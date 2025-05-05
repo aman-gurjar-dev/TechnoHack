@@ -13,10 +13,22 @@ dotenv.config();
 const app = express();
 
 // CORS configuration
+const allowedOrigins = [
+  'https://techno-hack-vercel-frontend.vercel.app', // Production frontend URL
+  'http://localhost:5173', // Development frontend URL (or other dev URLs)
+  'http://localhost:3000'  // Default
+];
+
 app.use(cors({
-  origin: process.env.NODE_ENV === "production" 
-    ? "https://techno-hack-vercel-frontend.vercel.app"
-    : true, // Allow all origins in development
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // Allow requests with no origin (like mobile apps or curl requests)
+
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],

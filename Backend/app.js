@@ -136,10 +136,25 @@ const connectDB = async () => {
 // Export the connectDB function
 module.exports.connectDB = connectDB;
 
-// Initial connection - only in non-serverless environment
-if (process.env.VERCEL !== "1") {
-  connectDB().catch(console.error);
-}
+// Always attempt to connect to MongoDB
+connectDB().catch(console.error);
+
+// Middleware to ensure MongoDB connection
+app.use(async (req, res, next) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      console.log("MongoDB not connected, attempting to connect...");
+      await connectDB();
+    }
+    next();
+  } catch (error) {
+    console.error("Failed to connect to MongoDB:", error);
+    res.status(503).json({
+      success: false,
+      message: "Database connection failed. Please try again.",
+    });
+  }
+});
 
 // Error handling for undefined routes
 app.use((req, res) => {

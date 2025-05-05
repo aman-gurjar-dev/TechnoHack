@@ -11,9 +11,19 @@ router.post("/register", async (req, res) => {
     const { name, email, password, role, adminKey } = req.body;
     console.log("Registration request received:", { name, email, role }); // Debug log
 
+    // Validate required fields
+    if (!name || !email || !password) {
+      console.error("Missing required fields:", { name: !!name, email: !!email, password: !!password });
+      return res.status(400).json({
+        success: false,
+        message: "Please provide all required fields",
+      });
+    }
+
     // Check if user already exists
     let user = await User.findOne({ email });
     if (user) {
+      console.log("User already exists:", email);
       return res.status(400).json({
         success: false,
         message: "User already exists",
@@ -23,6 +33,7 @@ router.post("/register", async (req, res) => {
     // Verify admin key if registering as admin
     if (role === "admin") {
       if (!adminKey || adminKey !== process.env.ADMIN_KEY) {
+        console.error("Invalid admin key attempt:", { provided: !!adminKey, expected: !!process.env.ADMIN_KEY });
         return res.status(403).json({
           success: false,
           message: "Invalid admin key",
@@ -41,13 +52,18 @@ router.post("/register", async (req, res) => {
       password: hashedPassword,
       role: role || "user", // Use provided role or default to user
     });
-    console.log("User created:", {
+    console.log("User created successfully:", {
       name: user.name,
       email: user.email,
       role: user.role,
-    }); // Debug log
+    });
 
     // Create token
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not defined");
+      throw new Error("JWT_SECRET is not configured");
+    }
+
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1d",
     });
@@ -68,7 +84,11 @@ router.post("/register", async (req, res) => {
       token,
     });
   } catch (error) {
-    console.error("Registration error:", error); // Debug log
+    console.error("Registration error:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({
       success: false,
       message: "Error creating user",

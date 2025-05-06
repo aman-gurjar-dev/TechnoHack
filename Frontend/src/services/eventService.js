@@ -24,6 +24,7 @@ export const eventService = {
     }
 
     try {
+      console.log("Fetching events from:", `${API_URL}/events`);
       const response = await fetch(`${API_URL}/events`, {
         method: 'GET',
         headers: getHeaders(),
@@ -33,10 +34,12 @@ export const eventService = {
       const data = await response.json();
       
       if (!response.ok) {
+        console.error("Error response:", data);
         throw new Error(data.message || `HTTP error! status: ${response.status}`);
       }
       
       if (!data.success) {
+        console.error("API error:", data);
         throw new Error(data.message || 'Failed to fetch events');
       }
       
@@ -47,6 +50,9 @@ export const eventService = {
       return data.events;
     } catch (error) {
       console.error("Error fetching events:", error);
+      if (error.message.includes('Failed to fetch')) {
+        throw new Error('Unable to connect to the server. Please check your internet connection.');
+      }
       throw new Error(`Failed to fetch events: ${error.message}`);
     }
   },

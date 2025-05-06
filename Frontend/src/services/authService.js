@@ -16,6 +16,14 @@ class AuthService {
       throw new Error(data.message || "Login failed");
     }
 
+    // Store token and user data in localStorage
+    if (data.token) {
+      localStorage.setItem("token", data.token);
+    }
+    if (data.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
+    }
+
     return data;
   }
 
@@ -29,6 +37,14 @@ class AuthService {
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.message || "Registration failed");
+    }
+
+    // Store token and user data in localStorage
+    if (data.token) {
+      localStorage.setItem("token", data.token);
+    }
+    if (data.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
     }
 
     return data;
@@ -45,7 +61,8 @@ class AuthService {
       throw new Error(data.message || "Logout failed");
     }
 
-    // Clear any local storage or cookies
+    // Clear all auth-related data from localStorage
+    localStorage.removeItem("token");
     localStorage.removeItem("user");
     document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
@@ -53,7 +70,15 @@ class AuthService {
   }
 
   async getCurrentUser() {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
     const response = await fetch(`${API_URL}/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
       credentials: "include",
     });
 
@@ -66,9 +91,17 @@ class AuthService {
   }
 
   async updateProfile(profileData) {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
     const response = await fetch(`${API_URL}/auth/profile`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
       credentials: "include",
       body: JSON.stringify(profileData),
     });

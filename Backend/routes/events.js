@@ -195,13 +195,22 @@ router.get("/:id/registrations", verifyToken, isAdmin, async (req, res) => {
 router.post("/", verifyToken, isAdmin, upload.single("image"), handleMulterError, async (req, res) => {
   try {
     // Validate required fields
-    const requiredFields = ['title', 'description', 'date', 'location', 'type'];
+    const requiredFields = ['title', 'description', 'date', 'location', 'type', 'club'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
     
     if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
         message: `Missing required fields: ${missingFields.join(', ')}`,
+      });
+    }
+
+    // Validate club exists
+    const club = await Club.findById(req.body.club);
+    if (!club) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid club ID",
       });
     }
 
@@ -212,6 +221,10 @@ router.post("/", verifyToken, isAdmin, upload.single("image"), handleMulterError
     };
 
     const event = await Event.create(eventData);
+    
+    // Add event to club's events array
+    club.events.push(event._id);
+    await club.save();
     
     res.status(201).json({
       success: true,

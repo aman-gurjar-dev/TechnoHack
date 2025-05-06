@@ -182,7 +182,7 @@ const AdminDashboard = () => {
     e.preventDefault();
     
     // Validate required fields
-    if (!eventData.title || !eventData.date || !eventData.location || !eventData.club) {
+    if (!eventData.title || !eventData.description || !eventData.date || !eventData.location || !eventData.club) {
       setError("Please fill in all required fields");
       return;
     }
@@ -193,6 +193,7 @@ const AdminDashboard = () => {
 
       const formData = new FormData();
       formData.append("title", eventData.title);
+      formData.append("description", eventData.description);
       formData.append("label", eventData.label);
       formData.append("date", eventData.date);
       formData.append("location", eventData.location);
@@ -204,7 +205,7 @@ const AdminDashboard = () => {
       }
 
       const response = await axios.post(
-        `${config.API_URL}/api/events`,
+        `${config.API_URL}/events`,
         formData,
         {
           headers: {
@@ -221,6 +222,7 @@ const AdminDashboard = () => {
         setShowEventForm(false);
         setEventData({
           title: "",
+          description: "",
           label: "",
           date: "",
           location: "",
@@ -571,6 +573,7 @@ const AdminDashboard = () => {
                     setError(null);
                     setEventData({
                       title: "",
+                      description: "",
                       label: "",
                       date: "",
                       location: "",
@@ -721,6 +724,21 @@ const AdminDashboard = () => {
                     accept="image/*"
                   />
                 </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description *
+                  </label>
+                  <textarea
+                    value={eventData.description}
+                    onChange={(e) =>
+                      setEventData({ ...eventData, description: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    rows="3"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end space-x-4">
@@ -731,6 +749,7 @@ const AdminDashboard = () => {
                     setError(null);
                     setEventData({
                       title: "",
+                      description: "",
                       label: "",
                       date: "",
                       location: "",

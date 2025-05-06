@@ -32,7 +32,7 @@ const eventSchema = new mongoose.Schema({
   },
   image: {
     type: String,
-    required: true,
+    required: false,
   },
   status: {
     type: String,
@@ -42,6 +42,11 @@ const eventSchema = new mongoose.Schema({
   organizer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
+    required: true
+  },
+  club: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Club",
     required: true
   },
   registrations: [

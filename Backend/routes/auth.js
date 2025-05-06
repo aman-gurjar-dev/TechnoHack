@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const auth = require("../middleware/auth");
 const mongoose = require("mongoose");
+const { verifyToken } = require('../middleware/auth');
 
 // Register user
 router.post("/register", async (req, res) => {
@@ -178,9 +179,9 @@ router.post("/login", async (req, res) => {
 });
 
 // Get current user
-router.get("/me", auth, async (req, res) => {
+router.get("/me", verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user._id).select('-password');
     res.status(200).json({
       success: true,
       user,
@@ -195,16 +196,51 @@ router.get("/me", auth, async (req, res) => {
 });
 
 // Logout user
-router.get("/logout", (req, res) => {
-  res.cookie("token", "", {
-    httpOnly: true,
-    expires: new Date(0),
-  });
-
+router.post("/logout", (req, res) => {
+  res.clearCookie("token");
   res.status(200).json({
     success: true,
     message: "Logged out successfully",
   });
+});
+
+// Update user profile
+router.put("/profile", verifyToken, async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    const user = await User.findById(req.user._id).select("+password");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Update fields if provided
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(password, salt);
+    }
+
+    await user.save();
+
+    // Remove password from response
+    user.password = undefined;
+
+    res.status(200).json({
+      success: true,
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error updating profile",
+      error: error.message,
+    });
+  }
 });
 
 module.exports = router;

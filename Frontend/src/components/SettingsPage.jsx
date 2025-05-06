@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -10,6 +10,7 @@ import {
   FaSignOutAlt,
 } from "react-icons/fa";
 import { authService } from "../services/authService";
+import { toast } from "react-hot-toast";
 
 const SettingsPage = () => {
   const [notifications, setNotifications] = useState({
@@ -18,23 +19,80 @@ const SettingsPage = () => {
     push: true,
   });
 
+  const [profileData, setProfileData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const user = await authService.getCurrentUser();
+      setProfileData({
+        name: user.name || "",
+        email: user.email || "",
+        password: "",
+      });
+    } catch (error) {
+      toast.error("Failed to fetch profile");
+      console.error("Profile fetch error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProfileChange = (e) => {
+    const { name, value } = e.target;
+    setProfileData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    try {
+      const updatedUser = await authService.updateProfile(profileData);
+      setProfileData((prev) => ({
+        ...prev,
+        password: "", // Clear password field after update
+      }));
+      toast.success("Profile updated successfully!");
+    } catch (error) {
+      toast.error(error.message || "Failed to update profile");
+    }
+  };
 
   // Logout Function
   const handleLogout = async () => {
     try {
       await authService.logout();
-      localStorage.removeItem("user"); // Remove user from local storage
-      navigate("/login"); // Redirect to login page
+      localStorage.removeItem("user");
+      navigate("/login");
     } catch (error) {
       console.error("Logout Error:", error);
-      alert("Logout failed. Please try again.");
+      toast.error("Logout failed. Please try again.");
     }
   };
 
   const toggleNotification = (type) => {
     setNotifications({ ...notifications, [type]: !notifications[type] });
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -64,11 +122,11 @@ const SettingsPage = () => {
           <h3 className="text-xl sm:text-2xl font-semibold mb-2 sm:mb-3">
             Profile
           </h3>
-          <div className="space-y-3 sm:space-y-4">
+          <form onSubmit={handleProfileUpdate} className="space-y-3 sm:space-y-4">
             {[
-              { icon: FaUser, placeholder: "Your Name", type: "text" },
-              { icon: FaEnvelope, placeholder: "Email Address", type: "email" },
-              { icon: FaLock, placeholder: "New Password", type: "password" },
+              { icon: FaUser, name: "name", placeholder: "Your Name", type: "text", value: profileData.name },
+              { icon: FaEnvelope, name: "email", placeholder: "Email Address", type: "email", value: profileData.email },
+              { icon: FaLock, name: "password", placeholder: "New Password", type: "password", value: profileData.password },
             ].map((input, index) => (
               <motion.div
                 key={index}
@@ -78,12 +136,23 @@ const SettingsPage = () => {
                 <input.icon className="text-blue-400 mr-2 sm:mr-3 text-lg sm:text-xl" />
                 <input
                   type={input.type}
+                  name={input.name}
+                  value={input.value}
+                  onChange={handleProfileChange}
                   placeholder={input.placeholder}
                   className="bg-transparent focus:outline-none w-full text-sm sm:text-base"
                 />
               </motion.div>
             ))}
-          </div>
+            <motion.button
+              type="submit"
+              className="w-full bg-blue-600 px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              Update Profile
+            </motion.button>
+          </form>
         </div>
 
         {/* Notification Preferences */}

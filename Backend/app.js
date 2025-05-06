@@ -38,7 +38,7 @@ app.use(cors({
   optionsSuccessStatus: 204
 }));
 
-// Middleware
+// Basic middleware
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
@@ -64,17 +64,6 @@ if (process.env.VERCEL !== "1") {
 
 // Serve static files from uploads directory
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// Basic route for testing
-app.get("/", (req, res) => {
-  res.json({ message: "Welcome to Techno Club API" });
-});
-
-// Routes
-const authRoutes = require("./routes/auth");
-const eventRoutes = require("./routes/events");
-app.use("/api/auth", authRoutes);
-app.use("/api/events", eventRoutes);
 
 // MongoDB Connection with enhanced error handling and retry logic
 let cachedDb = null;
@@ -156,6 +145,19 @@ app.use(async (req, res, next) => {
   }
 });
 
+// Basic route for testing
+app.get("/", (req, res) => {
+  res.json({ message: "Welcome to Techno Club API" });
+});
+
+// Routes
+const authRoutes = require("./routes/auth");
+const eventRoutes = require("./routes/events");
+const clubRoutes = require("./routes/clubs");
+app.use("/api/auth", authRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/clubs", clubRoutes);
+
 // Error handling for undefined routes
 app.use((req, res) => {
   console.log(`404: ${req.method} ${req.url}`);
@@ -198,6 +200,14 @@ app.use((err, req, res, next) => {
       success: false,
       message: "File upload error",
       error: err.message
+    });
+  }
+
+  if (err.name === "MongoError" || err.name === "MongoServerError") {
+    return res.status(500).json({
+      success: false,
+      message: "Database error occurred",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined
     });
   }
   
@@ -250,11 +260,12 @@ if (process.env.VERCEL !== "1") {
       });
     });
 
-    // Handle SIGTERM
-    process.on("SIGTERM", () => {
-      console.log("SIGTERM received. Shutting down gracefully");
+    // Handle uncaught exceptions
+    process.on("uncaughtException", (err) => {
+      console.log("UNCAUGHT EXCEPTION! 💥 Shutting down...");
+      console.log(err.name, err.message);
       server.close(() => {
-        console.log("Process terminated");
+        process.exit(1);
       });
     });
   };

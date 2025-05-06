@@ -1,11 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const Event = require("../models/event");
-const auth = require("../middleware/auth");
-const admin = require("../middleware/admin");
+const { verifyToken, isAdmin } = require("../middleware/auth");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const Club = require("../models/club");
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -66,12 +66,17 @@ const handleMulterError = (err, req, res, next) => {
 // Get all events
 router.get("/", async (req, res) => {
   try {
-    const events = await Event.find().sort({ date: 1 });
+    const events = await Event.find()
+      .populate("organizer", "name email")
+      .populate("registrations.user", "name email")
+      .sort({ date: 1 }); // Sort by date ascending
+
     res.status(200).json({
       success: true,
       events,
     });
   } catch (error) {
+    console.error("Error fetching events:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching events",
@@ -83,18 +88,23 @@ router.get("/", async (req, res) => {
 // Get event by ID
 router.get("/:id", async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id);
+    const event = await Event.findById(req.params.id)
+      .populate("organizer", "name email")
+      .populate("registrations.user", "name email");
+
     if (!event) {
       return res.status(404).json({
         success: false,
         message: "Event not found",
       });
     }
+
     res.status(200).json({
       success: true,
       event,
     });
   } catch (error) {
+    console.error("Error fetching event:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching event",
@@ -103,8 +113,8 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Register for an event
-router.post("/:id/register", auth, async (req, res) => {
+// Register for event
+router.post("/:id/register", verifyToken, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
 
@@ -115,16 +125,20 @@ router.post("/:id/register", auth, async (req, res) => {
       });
     }
 
-    // Check if event is upcoming
-    if (event.status !== "upcoming") {
+    // Check if event is in the past
+    if (new Date(event.date) < new Date()) {
       return res.status(400).json({
         success: false,
-        message: "Cannot register for completed events",
+        message: "Cannot register for past events",
       });
     }
 
     // Check if user is already registered
-    if (event.registrations.includes(req.user.id)) {
+    const isRegistered = event.registrations.some(
+      (reg) => reg.user.toString() === req.user.id
+    );
+
+    if (isRegistered) {
       return res.status(400).json({
         success: false,
         message: "Already registered for this event",
@@ -132,7 +146,7 @@ router.post("/:id/register", auth, async (req, res) => {
     }
 
     // Add user to registrations
-    event.registrations.push(req.user.id);
+    event.registrations.push({ user: req.user.id });
     await event.save();
 
     res.status(200).json({
@@ -141,6 +155,7 @@ router.post("/:id/register", auth, async (req, res) => {
       event,
     });
   } catch (error) {
+    console.error("Error registering for event:", error);
     res.status(500).json({
       success: false,
       message: "Error registering for event",
@@ -149,52 +164,79 @@ router.post("/:id/register", auth, async (req, res) => {
   }
 });
 
-// Admin Routes
+// Get event registrations (admin only)
+router.get("/:id/registrations", verifyToken, isAdmin, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id)
+      .populate("registrations.user", "name email");
 
-// Create new event (admin only)
-router.post(
-  "/",
-  auth,
-  admin,
-  upload.single("image"),
-  handleMulterError,
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({
-          success: false,
-          message: "Please upload an image",
-        });
-      }
-
-      const eventData = {
-        ...req.body,
-        image: `/uploads/events/${req.file.filename}`,
-      };
-
-      const event = await Event.create(eventData);
-      res.status(201).json({
-        success: true,
-        event,
-      });
-    } catch (error) {
-      // If there's an error, delete the uploaded file
-      if (req.file) {
-        fs.unlink(req.file.path, (err) => {
-          if (err) console.error("Error deleting file:", err);
-        });
-      }
-      res.status(500).json({
+    if (!event) {
+      return res.status(404).json({
         success: false,
-        message: "Error creating event",
-        error: error.message,
+        message: "Event not found",
       });
     }
+
+    res.status(200).json({
+      success: true,
+      registrations: event.registrations,
+    });
+  } catch (error) {
+    console.error("Error fetching registrations:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching registrations",
+      error: error.message,
+    });
   }
-);
+});
+
+// Create new event (admin only)
+router.post("/", verifyToken, isAdmin, upload.single("image"), handleMulterError, async (req, res) => {
+  try {
+    // Validate required fields
+    const requiredFields = ['title', 'description', 'date', 'location', 'type'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(', ')}`,
+      });
+    }
+
+    const eventData = {
+      ...req.body,
+      organizer: req.user.id,
+      image: req.file ? `/uploads/events/${req.file.filename}` : undefined,
+    };
+
+    const event = await Event.create(eventData);
+    
+    res.status(201).json({
+      success: true,
+      message: "Event created successfully",
+      event,
+    });
+  } catch (error) {
+    // If there's an error, delete the uploaded file
+    if (req.file) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error("Error deleting file:", err);
+      });
+    }
+    
+    console.error("Error creating event:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error creating event",
+      error: error.message,
+    });
+  }
+});
 
 // Update event (admin only)
-router.put("/:id", auth, admin, upload.single("image"), async (req, res) => {
+router.put("/:id", verifyToken, isAdmin, upload.single("image"), handleMulterError, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
 
@@ -205,22 +247,39 @@ router.put("/:id", auth, admin, upload.single("image"), async (req, res) => {
       });
     }
 
-    const eventData = {
-      ...req.body,
-      image: req.file ? `/uploads/events/${req.file.filename}` : event.image,
-    };
+    // If new image is uploaded, delete old image
+    if (req.file) {
+      if (event.image) {
+        const oldImagePath = path.join(__dirname, "..", event.image);
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlink(oldImagePath, (err) => {
+            if (err) console.error("Error deleting old image:", err);
+          });
+        }
+      }
+      req.body.image = `/uploads/events/${req.file.filename}`;
+    }
 
     const updatedEvent = await Event.findByIdAndUpdate(
       req.params.id,
-      eventData,
+      { ...req.body },
       { new: true, runValidators: true }
-    );
+    ).populate("organizer", "name email");
 
     res.status(200).json({
       success: true,
+      message: "Event updated successfully",
       event: updatedEvent,
     });
   } catch (error) {
+    // If there's an error and a new file was uploaded, delete it
+    if (req.file) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error("Error deleting file:", err);
+      });
+    }
+    
+    console.error("Error updating event:", error);
     res.status(500).json({
       success: false,
       message: "Error updating event",
@@ -230,7 +289,7 @@ router.put("/:id", auth, admin, upload.single("image"), async (req, res) => {
 });
 
 // Delete event (admin only)
-router.delete("/:id", auth, admin, async (req, res) => {
+router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
 
@@ -241,6 +300,16 @@ router.delete("/:id", auth, admin, async (req, res) => {
       });
     }
 
+    // Delete event image if exists
+    if (event.image) {
+      const imagePath = path.join(__dirname, "..", event.image);
+      if (fs.existsSync(imagePath)) {
+        fs.unlink(imagePath, (err) => {
+          if (err) console.error("Error deleting image:", err);
+        });
+      }
+    }
+
     await event.deleteOne();
 
     res.status(200).json({
@@ -248,6 +317,7 @@ router.delete("/:id", auth, admin, async (req, res) => {
       message: "Event deleted successfully",
     });
   } catch (error) {
+    console.error("Error deleting event:", error);
     res.status(500).json({
       success: false,
       message: "Error deleting event",

@@ -2,84 +2,222 @@ import config from '../config';
 
 const API_URL = config.API_URL;
 
+// Cache for events data
+let eventsCache = null;
+let lastFetchTime = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+const getHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+};
+
 export const eventService = {
   // Get all events
   getAllEvents: async () => {
-    const response = await fetch(`${API_URL}/events`, {
-      credentials: "include",
-    });
-    const data = await response.json();
-    if (!data.success) {
-      throw new Error(data.message);
+    // Return cached data if it's still valid
+    if (eventsCache && lastFetchTime && (Date.now() - lastFetchTime < CACHE_DURATION)) {
+      return eventsCache;
     }
-    return data.events;
+
+    try {
+      const response = await fetch(`${API_URL}/events`, {
+        method: 'GET',
+        headers: getHeaders(),
+        credentials: 'include',
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to fetch events');
+      }
+      
+      // Update cache
+      eventsCache = data.events;
+      lastFetchTime = Date.now();
+      
+      return data.events;
+    } catch (error) {
+      console.error("Error fetching events:", error);
+      throw new Error(`Failed to fetch events: ${error.message}`);
+    }
+  },
+
+  // Clear cache
+  clearCache: () => {
+    eventsCache = null;
+    lastFetchTime = null;
   },
 
   // Get event by ID
   getEventById: async (id) => {
-    const response = await fetch(`${API_URL}/events/${id}`, {
-      credentials: "include",
-    });
-    const data = await response.json();
-    if (!data.success) {
-      throw new Error(data.message);
+    try {
+      const response = await fetch(`${API_URL}/events/${id}`, {
+        method: 'GET',
+        headers: getHeaders(),
+        credentials: 'include',
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to fetch event');
+      }
+      
+      return data.event;
+    } catch (error) {
+      console.error("Error fetching event:", error);
+      throw new Error(`Failed to fetch event: ${error.message}`);
     }
-    return data.event;
   },
 
   // Register for an event
   registerForEvent: async (eventId) => {
-    const response = await fetch(`${API_URL}/events/${eventId}/register`, {
-      method: "POST",
-      credentials: "include",
-    });
-    const data = await response.json();
-    if (!data.success) {
-      throw new Error(data.message);
+    try {
+      const response = await fetch(`${API_URL}/events/${eventId}/register`, {
+        method: "POST",
+        headers: getHeaders(),
+        credentials: 'include',
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to register for event');
+      }
+      
+      return data;
+    } catch (error) {
+      console.error("Error registering for event:", error);
+      throw new Error(`Failed to register for event: ${error.message}`);
     }
-    return data;
   },
 
-  // Admin Operations
-
-  // Create new event
+  // Create new event (admin only)
   createEvent: async (formData) => {
-    const response = await fetch(`${API_URL}/events`, {
-      method: "POST",
-      credentials: "include",
-      body: formData,
-    });
-    const data = await response.json();
-    if (!data.success) {
-      throw new Error(data.message);
+    try {
+      const headers = getHeaders();
+      delete headers['Content-Type']; // Let the browser set the correct content type for FormData
+      
+      const response = await fetch(`${API_URL}/events`, {
+        method: "POST",
+        headers,
+        credentials: 'include',
+        body: formData,
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to create event');
+      }
+      
+      return data.event;
+    } catch (error) {
+      console.error("Error creating event:", error);
+      throw new Error(`Failed to create event: ${error.message}`);
     }
-    return data.event;
   },
 
-  // Update event
+  // Update event (admin only)
   updateEvent: async (eventId, formData) => {
-    const response = await fetch(`${API_URL}/events/${eventId}`, {
-      method: "PUT",
-      credentials: "include",
-      body: formData,
-    });
-    const data = await response.json();
-    if (!data.success) {
-      throw new Error(data.message);
+    try {
+      const headers = getHeaders();
+      delete headers['Content-Type']; // Let the browser set the correct content type for FormData
+      
+      const response = await fetch(`${API_URL}/events/${eventId}`, {
+        method: "PUT",
+        headers,
+        credentials: 'include',
+        body: formData,
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to update event');
+      }
+      
+      return data.event;
+    } catch (error) {
+      console.error("Error updating event:", error);
+      throw new Error(`Failed to update event: ${error.message}`);
     }
-    return data.event;
   },
 
-  // Delete event
+  // Delete event (admin only)
   deleteEvent: async (eventId) => {
-    const response = await fetch(`${API_URL}/events/${eventId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    const data = await response.json();
-    if (!data.success) {
-      throw new Error(data.message);
+    try {
+      const response = await fetch(`${API_URL}/events/${eventId}`, {
+        method: "DELETE",
+        headers: getHeaders(),
+        credentials: 'include',
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to delete event');
+      }
+      
+      return data;
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      throw new Error(`Failed to delete event: ${error.message}`);
     }
-    return data;
+  },
+
+  // Get event registrations (admin only)
+  getEventRegistrations: async (eventId) => {
+    try {
+      const response = await fetch(`${API_URL}/events/${eventId}/registrations`, {
+        method: 'GET',
+        headers: getHeaders(),
+        credentials: 'include',
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to fetch registrations');
+      }
+      
+      return data.registrations;
+    } catch (error) {
+      console.error("Error fetching registrations:", error);
+      throw new Error(`Failed to fetch registrations: ${error.message}`);
+    }
   },
 };

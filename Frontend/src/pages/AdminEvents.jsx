@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { eventService } from "../services/eventService";
+import { FaPlus, FaEdit, FaTrash, FaUsers } from "react-icons/fa";
+import EventRegistrations from "../components/EventRegistrations";
 import Sidebar from "../components/Sidebar";
 
 const AdminEvents = () => {
@@ -21,6 +23,7 @@ const AdminEvents = () => {
     status: "upcoming",
   });
   const [image, setImage] = useState(null);
+  const [showRegistrations, setShowRegistrations] = useState(false);
 
   useEffect(() => {
     fetchEvents();
@@ -123,6 +126,11 @@ const AdminEvents = () => {
     setImage(null);
   };
 
+  const handleViewRegistrations = (event) => {
+    setSelectedEvent(event);
+    setShowRegistrations(true);
+  };
+
   if (loading) {
     return (
       <div className="text-white w-[70%] mx-auto font-[Montserrat] flex justify-center items-center h-screen">
@@ -151,173 +159,71 @@ const AdminEvents = () => {
           Manage Events
         </motion.h1>
 
-        {/* Event Form */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-[#49478C] p-6 rounded-lg mb-8"
-        >
-          <h2 className="text-xl font-semibold text-white mb-4">
-            {isEditing ? "Edit Event" : "Create New Event"}
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <input
-                type="text"
-                name="title"
-                placeholder="Event Title"
-                value={formData.title}
-                onChange={handleInputChange}
-                className="p-2 rounded bg-gray-800 text-white"
-                required
-              />
-              <input
-                type="text"
-                name="label"
-                placeholder="Event Label"
-                value={formData.label}
-                onChange={handleInputChange}
-                className="p-2 rounded bg-gray-800 text-white"
-                required
-              />
-              <input
-                type="date"
-                name="date"
-                value={formData.date}
-                onChange={handleInputChange}
-                className="p-2 rounded bg-gray-800 text-white"
-                required
-              />
-              <input
-                type="text"
-                name="location"
-                placeholder="Event Location"
-                value={formData.location}
-                onChange={handleInputChange}
-                className="p-2 rounded bg-gray-800 text-white"
-                required
-              />
-              <select
-                name="type"
-                value={formData.type}
-                onChange={handleInputChange}
-                className="p-2 rounded bg-gray-800 text-white"
-                required
+        {showRegistrations ? (
+          <div>
+            <button
+              onClick={() => setShowRegistrations(false)}
+              className="mb-4 text-white hover:text-indigo-300 flex items-center"
+            >
+              ← Back to Events
+            </button>
+            <EventRegistrations eventId={selectedEvent._id} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {events.map((event) => (
+              <motion.div
+                key={event._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-lg shadow-lg overflow-hidden"
               >
-                <option value="offline">Offline</option>
-                <option value="online">Online</option>
-              </select>
-              <input
-                type="number"
-                name="fee"
-                placeholder="Event Fee"
-                value={formData.fee}
-                onChange={handleInputChange}
-                className="p-2 rounded bg-gray-800 text-white"
-                required
-              />
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleInputChange}
-                className="p-2 rounded bg-gray-800 text-white"
-                required
-              >
-                <option value="upcoming">Upcoming</option>
-                <option value="completed">Completed</option>
-              </select>
-              <input
-                type="file"
-                onChange={handleImageChange}
-                className="p-2 rounded bg-gray-800 text-white"
-                accept="image/*"
-              />
-            </div>
-            <textarea
-              name="description"
-              placeholder="Event Description"
-              value={formData.description}
-              onChange={handleInputChange}
-              className="w-full p-2 rounded bg-gray-800 text-white h-32"
-              required
-            />
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                {isEditing ? "Update Event" : "Create Event"}
-              </button>
-              {isEditing && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-          </form>
-        </motion.div>
-
-        {/* Events List */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-[#49478C] p-6 rounded-lg"
-        >
-          <h2 className="text-xl font-semibold text-white mb-4">Events List</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-white">
-              <thead>
-                <tr className="border-b border-gray-700">
-                  <th className="p-2 text-left">Title</th>
-                  <th className="p-2 text-left">Date</th>
-                  <th className="p-2 text-left">Location</th>
-                  <th className="p-2 text-left">Status</th>
-                  <th className="p-2 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {events.map((event) => (
-                  <tr key={event._id} className="border-b border-gray-700">
-                    <td className="p-2">{event.title}</td>
-                    <td className="p-2">
-                      {new Date(event.date).toLocaleDateString()}
-                    </td>
-                    <td className="p-2">{event.location}</td>
-                    <td className="p-2">
-                      <span
-                        className={`px-2 py-1 rounded ${
-                          event.status === "upcoming"
-                            ? "bg-green-500"
-                            : "bg-red-500"
-                        }`}
-                      >
-                        {event.status}
-                      </span>
-                    </td>
-                    <td className="p-2">
+                <img
+                  src={event.image}
+                  alt={event.title}
+                  className="w-full h-48 object-cover"
+                />
+                <div className="p-6">
+                  <h2 className="text-xl font-bold text-gray-800 mb-2">
+                    {event.title}
+                  </h2>
+                  <p className="text-gray-600 mb-4">{event.description}</p>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm">
+                      {event.type}
+                    </span>
+                    <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                      {event.status}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <button
+                      onClick={() => handleViewRegistrations(event)}
+                      className="text-indigo-600 hover:text-indigo-800 flex items-center"
+                    >
+                      <FaUsers className="mr-1" />
+                      View Registrations
+                    </button>
+                    <div className="flex space-x-2">
                       <button
                         onClick={() => handleEdit(event)}
-                        className="px-3 py-1 bg-blue-500 text-white rounded mr-2 hover:bg-blue-600"
+                        className="text-blue-600 hover:text-blue-800"
                       >
-                        Edit
+                        <FaEdit />
                       </button>
                       <button
                         onClick={() => handleDelete(event._id)}
-                        className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                        className="text-red-600 hover:text-red-800"
                       >
-                        Delete
+                        <FaTrash />
                       </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
           </div>
-        </motion.div>
+        )}
       </div>
     </div>
   );

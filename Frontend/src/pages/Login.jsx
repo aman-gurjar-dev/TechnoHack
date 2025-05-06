@@ -28,10 +28,7 @@ const Login = () => {
     try {
       setLoading(true);
       console.log("Attempting login with role:", isAdmin ? "admin" : "user");
-      const response = await authService.login({
-        ...formData,
-        role: isAdmin ? "admin" : "user",
-      });
+      const response = await authService.login(formData, isAdmin ? "admin" : "user");
       console.log("Login response:", response);
 
       if (isAdmin) {

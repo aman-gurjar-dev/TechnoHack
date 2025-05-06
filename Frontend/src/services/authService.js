@@ -3,11 +3,11 @@ import config from '../config';
 const API_URL = config.API_URL;
 
 class AuthService {
-  async login(credentials) {
+  async login(credentials, role = null) {
     const response = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(credentials),
+      body: JSON.stringify({ ...credentials, role }),
       credentials: "include",
     });
 
@@ -60,6 +60,22 @@ class AuthService {
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.message || "Failed to get user data");
+    }
+
+    return data.user;
+  }
+
+  async updateProfile(profileData) {
+    const response = await fetch(`${API_URL}/auth/profile`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(profileData),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to update profile");
     }
 
     return data.user;

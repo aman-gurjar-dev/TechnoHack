@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { authService } from "../services/authService";
+import config from "../config";
 import {
   FaUserShield,
   FaLock,
@@ -39,7 +40,7 @@ const AdminSignup = () => {
         throw new Error("Passwords do not match");
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
+      const response = await fetch(`${config.API_URL}/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

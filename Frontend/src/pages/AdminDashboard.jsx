@@ -15,6 +15,9 @@ import {
   FaUserShield,
   FaBell,
   FaCog,
+  FaTimes,
+  FaBullhorn,
+  FaMapMarkerAlt,
 } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { Bar, Pie, Line } from "react-chartjs-2";
@@ -23,6 +26,9 @@ import { toast } from "react-hot-toast";
 import { authService } from "../services/authService";
 import config from "../config";
 import { clubService } from "../services/clubService";
+import { eventService } from "../services/eventService";
+import axios from "axios";
+import { announcementService } from "../services/announcementService";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -40,7 +46,7 @@ const AdminDashboard = () => {
     fee: 0,
     label: "",
     image: null,
-    clubId: "",
+    club: "",
   });
 
   const [formErrors, setFormErrors] = useState({});
@@ -56,10 +62,20 @@ const AdminDashboard = () => {
     image: null,
   });
 
+  const [selectedClubFilter, setSelectedClubFilter] = useState("");
+  const [error, setError] = useState(null);
+
+  const [announcements, setAnnouncements] = useState([]);
+  const [newAnnouncement, setNewAnnouncement] = useState("");
+  const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
+  const [isEditingAnnouncement, setIsEditingAnnouncement] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+
   useEffect(() => {
     checkAdminAuth();
     fetchEvents();
     fetchClubs();
+    fetchAnnouncements();
   }, []);
 
   const checkAdminAuth = async () => {
@@ -84,23 +100,35 @@ const AdminDashboard = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch(`${config.API_URL}/events`);
-      const data = await response.json();
-      setEvents(data.events || []);
+      setLoading(true);
+      const fetchedEvents = await eventService.getAllEvents();
+      setEvents(fetchedEvents);
     } catch (error) {
+      console.error("Error fetching events:", error);
       toast.error("Failed to fetch events");
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchClubs = async () => {
     try {
-      const response = await fetch(`${config.API_URL}/clubs`, {
-        credentials: "include",
-      });
-      const data = await response.json();
-      setClubs(data.clubs || []);
+      const fetchedClubs = await clubService.getAllClubs();
+      console.log("Fetched clubs:", fetchedClubs);
+      setClubs(fetchedClubs);
     } catch (error) {
+      console.error("Error fetching clubs:", error);
       toast.error("Failed to fetch clubs");
+    }
+  };
+
+  const fetchAnnouncements = async () => {
+    try {
+      const announcementsData = await announcementService.getAllAnnouncements();
+      setAnnouncements(announcementsData);
+    } catch (error) {
+      console.error("Error fetching announcements:", error);
+      toast.error("Failed to fetch announcements");
     }
   };
 
@@ -116,13 +144,13 @@ const AdminDashboard = () => {
     if (eventData.fee < 0) errors.fee = "Fee cannot be negative";
     if (!eventData.label.trim()) errors.label = "Label is required";
     if (!eventData.image) errors.image = "Image is required";
-    if (!eventData.clubId) errors.clubId = "Club is required";
+    if (!eventData.club) errors.club = "Club is required";
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleInputChange = (e) => {
+  const handleEventInputChange = (e) => {
     const { name, value } = e.target;
     setEventData((prev) => ({
       ...prev,
@@ -137,7 +165,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleImageChange = (e) => {
+  const handleEventImageChange = (e) => {
     const file = e.target.files[0];
     setEventData((prev) => ({
       ...prev,
@@ -147,80 +175,59 @@ const AdminDashboard = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      toast.error("Please fill in all required fields");
+    
+    // Validate required fields
+    if (!eventData.title || !eventData.date || !eventData.location || !eventData.club) {
+      setError("Please fill in all required fields");
       return;
     }
 
-    setLoading(true);
-
     try {
-      // Format date and time
-      const [year, month, day] = eventData.date.split("-");
-      const [hours, minutes] = eventData.time.split(":");
-      const eventDateTime = new Date(year, month - 1, day, hours, minutes);
+      setLoading(true);
+      setError(null);
 
       const formData = new FormData();
-
-      // Add all fields to formData
       formData.append("title", eventData.title);
-      formData.append("description", eventData.description);
-      formData.append("date", eventDateTime.toISOString());
+      formData.append("label", eventData.label);
+      formData.append("date", eventData.date);
       formData.append("location", eventData.location);
       formData.append("type", eventData.type);
       formData.append("fee", eventData.fee);
-      formData.append("label", eventData.label);
-      formData.append("clubId", eventData.clubId);
-
+      formData.append("club", eventData.club);
       if (eventData.image) {
         formData.append("image", eventData.image);
       }
 
-      // Log the form data for debugging
-      console.log("Sending event data:", {
-        title: eventData.title,
-        description: eventData.description,
-        date: eventDateTime.toISOString(),
-        location: eventData.location,
-        type: eventData.type,
-        fee: eventData.fee,
-        label: eventData.label,
-        clubId: eventData.clubId,
-        image: eventData.image ? eventData.image.name : null,
-      });
+      const response = await axios.post(
+        `${config.API_URL}/api/events`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
 
-      const response = await fetch(`${config.API_URL}/events`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to create event");
+      if (response.data.success) {
+        // Clear the events cache
+        eventService.clearCache();
+        setEvents([...events, response.data.event]);
+        setShowEventForm(false);
+        setEventData({
+          title: "",
+          label: "",
+          date: "",
+          location: "",
+          type: "offline",
+          fee: "",
+          image: null,
+          club: "",
+        });
+        setError(null);
       }
-
-      toast.success("Event created successfully!");
-      setShowEventForm(false);
-      setEventData({
-        title: "",
-        description: "",
-        date: "",
-        time: "",
-        location: "",
-        type: "offline",
-        fee: 0,
-        label: "",
-        image: null,
-        clubId: "",
-      });
-      setFormErrors({});
-      fetchEvents();
     } catch (error) {
-      console.error("Event creation error:", error);
-      toast.error(error.message || "Failed to create event. Please try again.");
+      setError(error.response?.data?.message || "Error creating event");
     } finally {
       setLoading(false);
     }
@@ -523,247 +530,226 @@ const AdminDashboard = () => {
       <div className="p-6 border-b border-gray-200">
         <div className="flex justify-between items-center">
           <h3 className="text-xl font-semibold">Events Management</h3>
-          <button
-            onClick={() => setShowEventForm(true)}
-            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          >
-            <FaPlus className="mr-2" />
-            Add New Event
-          </button>
+          <div className="flex items-center space-x-4">
+            <select
+              value={selectedClubFilter}
+              onChange={(e) => setSelectedClubFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">All Clubs</option>
+              {clubs.map((club) => (
+                <option key={club._id} value={club._id}>
+                  {club.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => setShowEventForm(true)}
+              className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+            >
+              <FaPlus className="mr-2" />
+              Add New Event
+            </button>
+          </div>
         </div>
       </div>
 
       {showEventForm && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="p-6 border-b border-gray-200"
-        >
-          <h2 className="text-xl font-semibold mb-4">Create New Event</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Club *
-                </label>
-                <select
-                  name="clubId"
-                  value={eventData.clubId}
-                  onChange={handleInputChange}
-                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    formErrors.clubId ? "border-red-500" : "border-gray-300"
-                  }`}
-                  required
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold">Add New Event</h3>
+                <button
+                  onClick={() => {
+                    setShowEventForm(false);
+                    setError(null);
+                    setEventData({
+                      title: "",
+                      label: "",
+                      date: "",
+                      location: "",
+                      type: "offline",
+                      fee: "",
+                      image: null,
+                      club: "",
+                    });
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
                 >
-                  <option value="">Select a club</option>
-                  {clubs.map((club) => (
-                    <option key={club._id} value={club._id}>
-                      {club.name}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.clubId && (
-                  <p className="mt-1 text-sm text-red-600">{formErrors.clubId}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Event Title *
-                </label>
-                <input
-                  type="text"
-                  name="title"
-                  value={eventData.title}
-                  onChange={handleInputChange}
-                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    formErrors.title ? "border-red-500" : "border-gray-300"
-                  }`}
-                  required
-                />
-                {formErrors.title && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {formErrors.title}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Event Label *
-                </label>
-                <input
-                  type="text"
-                  name="label"
-                  value={eventData.label}
-                  onChange={handleInputChange}
-                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    formErrors.label ? "border-red-500" : "border-gray-300"
-                  }`}
-                  required
-                />
-                {formErrors.label && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {formErrors.label}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Event Type *
-                </label>
-                <select
-                  name="type"
-                  value={eventData.type}
-                  onChange={handleInputChange}
-                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    formErrors.type ? "border-red-500" : "border-gray-300"
-                  }`}
-                  required
-                >
-                  <option value="offline">Offline</option>
-                  <option value="online">Online</option>
-                </select>
-                {formErrors.type && (
-                  <p className="mt-1 text-sm text-red-600">{formErrors.type}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Fee (₹) *
-                </label>
-                <input
-                  type="number"
-                  name="fee"
-                  value={eventData.fee}
-                  onChange={handleInputChange}
-                  min="0"
-                  step="0.01"
-                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    formErrors.fee ? "border-red-500" : "border-gray-300"
-                  }`}
-                  required
-                />
-                {formErrors.fee && (
-                  <p className="mt-1 text-sm text-red-600">{formErrors.fee}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Date *
-                </label>
-                <input
-                  type="date"
-                  name="date"
-                  value={eventData.date}
-                  onChange={handleInputChange}
-                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    formErrors.date ? "border-red-500" : "border-gray-300"
-                  }`}
-                  required
-                />
-                {formErrors.date && (
-                  <p className="mt-1 text-sm text-red-600">{formErrors.date}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Time *
-                </label>
-                <input
-                  type="time"
-                  name="time"
-                  value={eventData.time}
-                  onChange={handleInputChange}
-                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    formErrors.time ? "border-red-500" : "border-gray-300"
-                  }`}
-                  required
-                />
-                {formErrors.time && (
-                  <p className="mt-1 text-sm text-red-600">{formErrors.time}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Location *
-                </label>
-                <input
-                  type="text"
-                  name="location"
-                  value={eventData.location}
-                  onChange={handleInputChange}
-                  className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                    formErrors.location ? "border-red-500" : "border-gray-300"
-                  }`}
-                  required
-                />
-                {formErrors.location && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {formErrors.location}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Event Image *
-                </label>
-                <input
-                  type="file"
-                  name="image"
-                  onChange={handleImageChange}
-                  accept="image/*"
-                  className={`mt-1 block w-full ${
-                    formErrors.image ? "border-red-500" : "border-gray-300"
-                  }`}
-                  required
-                />
-                {formErrors.image && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {formErrors.image}
-                  </p>
-                )}
+                  <FaTimes />
+                </button>
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Description *
-              </label>
-              <textarea
-                name="description"
-                value={eventData.description}
-                onChange={handleInputChange}
-                rows="4"
-                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
-                  formErrors.description ? "border-red-500" : "border-gray-300"
-                }`}
-                required
-              ></textarea>
-              {formErrors.description && (
-                <p className="mt-1 text-sm text-red-600">
-                  {formErrors.description}
-                </p>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
+                  {error}
+                </div>
               )}
-            </div>
-            <div className="flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowEventForm(false);
-                  setFormErrors({});
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {loading ? "Creating..." : "Create Event"}
-              </button>
-            </div>
-          </form>
-        </motion.div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Event Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={eventData.title}
+                    onChange={(e) =>
+                      setEventData({ ...eventData, title: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Event Label
+                  </label>
+                  <input
+                    type="text"
+                    value={eventData.label}
+                    onChange={(e) =>
+                      setEventData({ ...eventData, label: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date & Time *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={eventData.date}
+                    onChange={(e) =>
+                      setEventData({ ...eventData, date: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Location *
+                  </label>
+                  <input
+                    type="text"
+                    value={eventData.location}
+                    onChange={(e) =>
+                      setEventData({ ...eventData, location: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Event Type *
+                  </label>
+                  <select
+                    value={eventData.type}
+                    onChange={(e) =>
+                      setEventData({ ...eventData, type: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                  >
+                    <option value="offline">Offline</option>
+                    <option value="online">Online</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Registration Fee (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    value={eventData.fee}
+                    onChange={(e) =>
+                      setEventData({ ...eventData, fee: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                    min="0"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Club *
+                  </label>
+                  <select
+                    value={eventData.club}
+                    onChange={(e) =>
+                      setEventData({ ...eventData, club: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    required
+                  >
+                    <option value="">Select a club</option>
+                    {clubs.map((club) => (
+                      <option key={club._id} value={club._id}>
+                        {club.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Event Image
+                  </label>
+                  <input
+                    type="file"
+                    onChange={(e) =>
+                      setEventData({ ...eventData, image: e.target.files[0] })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    accept="image/*"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEventForm(false);
+                    setError(null);
+                    setEventData({
+                      title: "",
+                      label: "",
+                      date: "",
+                      location: "",
+                      type: "offline",
+                      fee: "",
+                      image: null,
+                      club: "",
+                    });
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? "Creating..." : "Create Event"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       <div className="overflow-x-auto">
@@ -774,16 +760,19 @@ const AdminDashboard = () => {
                 Event
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Club
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Date & Time
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Location
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Capacity
+                Type
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Price
+                Fee
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
@@ -791,7 +780,9 @@ const AdminDashboard = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {events.map((event) => (
+            {events
+              .filter(event => !selectedClubFilter || event.club?._id === selectedClubFilter)
+              .map((event) => (
               <tr key={event._id}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
@@ -805,23 +796,38 @@ const AdminDashboard = () => {
                         {event.title}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {event.category}
+                        {event.label}
                       </div>
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{event.date}</div>
-                  <div className="text-sm text-gray-500">{event.time}</div>
+                  <div className="text-sm text-gray-900">
+                    {event.club?.name || "N/A"}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">
+                    {new Date(event.date).toLocaleDateString()}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {new Date(event.date).toLocaleTimeString()}
+                  </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-900">{event.location}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{event.capacity}</div>
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    event.type === "online" 
+                      ? "bg-green-100 text-green-800" 
+                      : "bg-blue-100 text-blue-800"
+                  }`}>
+                    {event.type}
+                  </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">${event.price}</div>
+                  <div className="text-sm text-gray-900">₹{event.fee}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <button
@@ -1074,6 +1080,173 @@ const AdminDashboard = () => {
     </div>
   );
 
+  const handleCreateAnnouncement = async (e) => {
+    e.preventDefault();
+    if (!newAnnouncement.trim()) {
+      toast.error("Announcement cannot be empty");
+      return;
+    }
+
+    try {
+      await announcementService.createAnnouncement({
+        content: newAnnouncement,
+        date: new Date().toISOString(),
+      });
+      toast.success("Announcement created successfully");
+      setNewAnnouncement("");
+      setShowAnnouncementForm(false);
+      fetchAnnouncements();
+    } catch (error) {
+      toast.error(error.message || "Failed to create announcement");
+    }
+  };
+
+  const handleUpdateAnnouncement = async (e) => {
+    e.preventDefault();
+    if (!newAnnouncement.trim()) {
+      toast.error("Announcement cannot be empty");
+      return;
+    }
+
+    try {
+      await announcementService.updateAnnouncement(selectedAnnouncement._id, {
+        content: newAnnouncement,
+        date: new Date().toISOString(),
+      });
+      toast.success("Announcement updated successfully");
+      setNewAnnouncement("");
+      setShowAnnouncementForm(false);
+      setIsEditingAnnouncement(false);
+      setSelectedAnnouncement(null);
+      fetchAnnouncements();
+    } catch (error) {
+      toast.error(error.message || "Failed to update announcement");
+    }
+  };
+
+  const handleDeleteAnnouncement = async (announcementId) => {
+    if (window.confirm("Are you sure you want to delete this announcement?")) {
+      try {
+        await announcementService.deleteAnnouncement(announcementId);
+        toast.success("Announcement deleted successfully");
+        fetchAnnouncements();
+      } catch (error) {
+        toast.error(error.message || "Failed to delete announcement");
+      }
+    }
+  };
+
+  const handleEditAnnouncement = (announcement) => {
+    setSelectedAnnouncement(announcement);
+    setNewAnnouncement(announcement.content);
+    setIsEditingAnnouncement(true);
+    setShowAnnouncementForm(true);
+  };
+
+  const renderAnnouncements = () => (
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-semibold flex items-center">
+            <FaBullhorn className="mr-2" /> Announcements
+          </h3>
+          <button
+            onClick={() => {
+              setShowAnnouncementForm(!showAnnouncementForm);
+              if (!showAnnouncementForm) {
+                setNewAnnouncement("");
+                setIsEditingAnnouncement(false);
+                setSelectedAnnouncement(null);
+              }
+            }}
+            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+          >
+            <FaPlus className="mr-2" />
+            New Announcement
+          </button>
+        </div>
+      </div>
+
+      {showAnnouncementForm && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-6 border-b border-gray-200"
+        >
+          <h2 className="text-xl font-semibold mb-4">
+            {isEditingAnnouncement ? "Edit Announcement" : "Create New Announcement"}
+          </h2>
+          <form onSubmit={isEditingAnnouncement ? handleUpdateAnnouncement : handleCreateAnnouncement} className="space-y-4">
+            <div>
+              <textarea
+                value={newAnnouncement}
+                onChange={(e) => setNewAnnouncement(e.target.value)}
+                placeholder="Write your announcement..."
+                className="w-full p-3 rounded-lg bg-gray-50 border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                rows="4"
+                required
+              />
+            </div>
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAnnouncementForm(false);
+                  setNewAnnouncement("");
+                  setIsEditingAnnouncement(false);
+                  setSelectedAnnouncement(null);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              >
+                {isEditingAnnouncement ? "Update Announcement" : "Post Announcement"}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      )}
+
+      <div className="p-6">
+        <div className="space-y-4">
+          {announcements.length === 0 ? (
+            <p className="text-gray-500 text-center">No announcements yet</p>
+          ) : (
+            announcements.map((announcement) => (
+              <div
+                key={announcement._id}
+                className="bg-gray-50 p-4 rounded-lg relative group"
+              >
+                <p className="text-gray-800">{announcement.content}</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  {new Date(announcement.date).toLocaleDateString()}
+                </p>
+                <div className="absolute top-2 right-2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => handleEditAnnouncement(announcement)}
+                    className="p-2 bg-white rounded-full shadow-md hover:bg-gray-100"
+                  >
+                    <FaEdit className="text-blue-600" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteAnnouncement(announcement._id)}
+                    className="p-2 bg-white rounded-full shadow-md hover:bg-gray-100"
+                  >
+                    <FaTrash className="text-red-600" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
@@ -1166,6 +1339,16 @@ const AdminDashboard = () => {
             >
               Settings
             </button>
+            <button
+              onClick={() => setActiveTab("announcements")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "announcements"
+                  ? "border-indigo-500 text-indigo-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              Announcements
+            </button>
           </nav>
         </div>
 
@@ -1192,6 +1375,7 @@ const AdminDashboard = () => {
             <p className="text-gray-500">Settings features coming soon.</p>
           </div>
         )}
+        {activeTab === "announcements" && renderAnnouncements()}
       </main>
     </div>
   );

@@ -18,6 +18,7 @@ import {
   FaTimes,
   FaBullhorn,
   FaMapMarkerAlt,
+  FaClock,
 } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { Bar, Pie, Line } from "react-chartjs-2";
@@ -70,6 +71,7 @@ const AdminDashboard = () => {
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
   const [isEditingAnnouncement, setIsEditingAnnouncement] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [announcementLoading, setAnnouncementLoading] = useState(false);
 
   useEffect(() => {
     checkAdminAuth();
@@ -124,11 +126,14 @@ const AdminDashboard = () => {
 
   const fetchAnnouncements = async () => {
     try {
+      setAnnouncementLoading(true);
       const announcementsData = await announcementService.getAllAnnouncements();
       setAnnouncements(announcementsData);
     } catch (error) {
       console.error("Error fetching announcements:", error);
       toast.error("Failed to fetch announcements");
+    } finally {
+      setAnnouncementLoading(false);
     }
   };
 
@@ -1089,8 +1094,10 @@ const AdminDashboard = () => {
 
     try {
       await announcementService.createAnnouncement({
+        title: "Announcement",
         content: newAnnouncement,
-        date: new Date().toISOString(),
+        priority: "medium",
+        targetAudience: "all"
       });
       toast.success("Announcement created successfully");
       setNewAnnouncement("");
@@ -1110,8 +1117,11 @@ const AdminDashboard = () => {
 
     try {
       await announcementService.updateAnnouncement(selectedAnnouncement._id, {
+        title: selectedAnnouncement.title,
         content: newAnnouncement,
-        date: new Date().toISOString(),
+        priority: selectedAnnouncement.priority,
+        targetAudience: selectedAnnouncement.targetAudience,
+        status: selectedAnnouncement.status
       });
       toast.success("Announcement updated successfully");
       setNewAnnouncement("");
@@ -1144,106 +1154,191 @@ const AdminDashboard = () => {
   };
 
   const renderAnnouncements = () => (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex justify-between items-center">
-          <h3 className="text-xl font-semibold flex items-center">
-            <FaBullhorn className="mr-2" /> Announcements
-          </h3>
-          <button
-            onClick={() => {
-              setShowAnnouncementForm(!showAnnouncementForm);
-              if (!showAnnouncementForm) {
-                setNewAnnouncement("");
-                setIsEditingAnnouncement(false);
-                setSelectedAnnouncement(null);
-              }
-            }}
-            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          >
-            <FaPlus className="mr-2" />
-            New Announcement
-          </button>
+    <div className="bg-[#1A0B38] rounded-lg p-6">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center space-x-2">
+          <FaBullhorn className="text-blue-400 text-xl" />
+          <h3 className="text-xl font-semibold">Announcements</h3>
         </div>
+        <button
+          onClick={() => setShowAnnouncementForm(!showAnnouncementForm)}
+          className="flex items-center space-x-2 px-4 py-2 bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          <FaPlus />
+          <span>New Announcement</span>
+        </button>
       </div>
 
       {showAnnouncementForm && (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-6 border-b border-gray-200"
+          className="bg-gray-800 rounded-lg p-6 mb-6"
         >
-          <h2 className="text-xl font-semibold mb-4">
-            {isEditingAnnouncement ? "Edit Announcement" : "Create New Announcement"}
-          </h2>
           <form onSubmit={isEditingAnnouncement ? handleUpdateAnnouncement : handleCreateAnnouncement} className="space-y-4">
             <div>
-              <textarea
-                value={newAnnouncement}
-                onChange={(e) => setNewAnnouncement(e.target.value)}
-                placeholder="Write your announcement..."
-                className="w-full p-3 rounded-lg bg-gray-50 border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                rows="4"
-                required
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Title
+              </label>
+              <input
+                type="text"
+                value={newAnnouncement.title || ''}
+                onChange={(e) => setNewAnnouncement({ ...newAnnouncement, title: e.target.value })}
+                placeholder="Announcement title"
+                className="w-full p-3 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <div className="flex justify-end space-x-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Content
+              </label>
+              <textarea
+                value={newAnnouncement.content || ''}
+                onChange={(e) => setNewAnnouncement({ ...newAnnouncement, content: e.target.value })}
+                placeholder="Write your announcement..."
+                className="w-full p-3 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                rows="4"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Priority
+                </label>
+                <select
+                  value={newAnnouncement.priority || 'medium'}
+                  onChange={(e) => setNewAnnouncement({ ...newAnnouncement, priority: e.target.value })}
+                  className="w-full p-3 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Target Audience
+                </label>
+                <select
+                  value={newAnnouncement.targetAudience || 'all'}
+                  onChange={(e) => setNewAnnouncement({ ...newAnnouncement, targetAudience: e.target.value })}
+                  className="w-full p-3 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Users</option>
+                  <option value="students">Students Only</option>
+                  <option value="teachers">Teachers Only</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Expiry Date
+                </label>
+                <input
+                  type="date"
+                  value={newAnnouncement.expiryDate || ''}
+                  onChange={(e) => setNewAnnouncement({ ...newAnnouncement, expiryDate: e.target.value })}
+                  className="w-full p-3 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3">
               <button
                 type="button"
                 onClick={() => {
                   setShowAnnouncementForm(false);
-                  setNewAnnouncement("");
                   setIsEditingAnnouncement(false);
-                  setSelectedAnnouncement(null);
+                  setNewAnnouncement({});
                 }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 transition-colors"
               >
-                {isEditingAnnouncement ? "Update Announcement" : "Post Announcement"}
+                {isEditingAnnouncement ? 'Update' : 'Post'} Announcement
               </button>
             </div>
           </form>
         </motion.div>
       )}
 
-      <div className="p-6">
+      {announcementLoading ? (
+        <div className="flex justify-center items-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-400"></div>
+        </div>
+      ) : (
         <div className="space-y-4">
           {announcements.length === 0 ? (
-            <p className="text-gray-500 text-center">No announcements yet</p>
+            <div className="text-center py-12">
+              <FaBullhorn className="text-gray-600 text-5xl mx-auto mb-4" />
+              <p className="text-gray-400 text-lg">No announcements yet</p>
+              <p className="text-gray-500 mt-2">Create your first announcement to get started</p>
+            </div>
           ) : (
             announcements.map((announcement) => (
-              <div
+              <motion.div
                 key={announcement._id}
-                className="bg-gray-50 p-4 rounded-lg relative group"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gray-800 rounded-lg p-6 relative group hover:bg-gray-750 transition-colors"
               >
-                <p className="text-gray-800">{announcement.content}</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  {new Date(announcement.date).toLocaleDateString()}
-                </p>
-                <div className="absolute top-2 right-2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => handleEditAnnouncement(announcement)}
-                    className="p-2 bg-white rounded-full shadow-md hover:bg-gray-100"
-                  >
-                    <FaEdit className="text-blue-600" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteAnnouncement(announcement._id)}
-                    className="p-2 bg-white rounded-full shadow-md hover:bg-gray-100"
-                  >
-                    <FaTrash className="text-red-600" />
-                  </button>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h4 className="text-blue-400 font-medium text-lg">
+                        {announcement.title}
+                      </h4>
+                      <span className={`px-3 py-1 rounded-full text-sm ${
+                        announcement.priority === 'high' 
+                          ? 'bg-red-900/30 text-red-400' 
+                          : announcement.priority === 'medium'
+                          ? 'bg-yellow-900/30 text-yellow-400'
+                          : 'bg-green-900/30 text-green-400'
+                      }`}>
+                        {announcement.priority}
+                      </span>
+                      <span className="px-3 py-1 rounded-full bg-blue-900/30 text-blue-400 text-sm">
+                        {announcement.targetAudience}
+                      </span>
+                    </div>
+                    <p className="text-gray-300 mb-4">
+                      {announcement.content}
+                    </p>
+                    <div className="flex items-center space-x-4 text-sm text-gray-400">
+                      <span className="flex items-center">
+                        <FaCalendarAlt className="mr-1" />
+                        Posted: {new Date(announcement.createdAt).toLocaleDateString()}
+                      </span>
+                      {announcement.expiryDate && (
+                        <span className="flex items-center">
+                          <FaClock className="mr-1" />
+                          Expires: {new Date(announcement.expiryDate).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => handleEditAnnouncement(announcement)}
+                      className="p-2 bg-blue-900/30 rounded-lg hover:bg-blue-900/50 transition-colors"
+                    >
+                      <FaEdit className="text-blue-400" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteAnnouncement(announcement._id)}
+                      className="p-2 bg-red-900/30 rounded-lg hover:bg-red-900/50 transition-colors"
+                    >
+                      <FaTrash className="text-red-400" />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </motion.div>
             ))
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 

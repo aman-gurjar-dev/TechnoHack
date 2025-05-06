@@ -28,7 +28,7 @@ export const announcementService = {
         }
         throw new Error(data.message || "Failed to fetch announcements");
       }
-      return data.announcements;
+      return data.data;
     } catch (error) {
       console.error("Error fetching announcements:", error);
       throw error;
@@ -42,7 +42,13 @@ export const announcementService = {
         method: 'POST',
         headers: getHeaders(),
         credentials: 'include',
-        body: JSON.stringify(announcementData),
+        body: JSON.stringify({
+          title: announcementData.title || 'Announcement',
+          content: announcementData.content,
+          priority: announcementData.priority || 'medium',
+          targetAudience: announcementData.targetAudience || 'all',
+          expiryDate: announcementData.expiryDate
+        }),
       });
 
       const data = await response.json();
@@ -53,7 +59,7 @@ export const announcementService = {
         }
         throw new Error(data.message || "Failed to create announcement");
       }
-      return data.announcement;
+      return data.data;
     } catch (error) {
       console.error("Error creating announcement:", error);
       throw error;
@@ -67,7 +73,14 @@ export const announcementService = {
         method: 'PUT',
         headers: getHeaders(),
         credentials: 'include',
-        body: JSON.stringify(announcementData),
+        body: JSON.stringify({
+          title: announcementData.title,
+          content: announcementData.content,
+          priority: announcementData.priority,
+          targetAudience: announcementData.targetAudience,
+          status: announcementData.status,
+          expiryDate: announcementData.expiryDate
+        }),
       });
 
       const data = await response.json();
@@ -78,7 +91,7 @@ export const announcementService = {
         }
         throw new Error(data.message || "Failed to update announcement");
       }
-      return data.announcement;
+      return data.data;
     } catch (error) {
       console.error("Error updating announcement:", error);
       throw error;

@@ -8,4 +8,5 @@ const config = {
   };
   
   const environment = process.env.NODE_ENV || 'development'; // Default to 'development' if NODE_ENV is not set
+  export const API_URL = config[environment].API_URL;
   export default config[environment];

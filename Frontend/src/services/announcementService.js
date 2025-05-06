@@ -1,12 +1,10 @@
-import config from '../config';
-
-const API_URL = config.API_URL;
+import { API_URL } from '../config';
 
 const getHeaders = () => {
   const token = localStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    'Authorization': `Bearer ${token}`
   };
 };
 
@@ -23,7 +21,6 @@ export const announcementService = {
       const data = await response.json();
       if (!response.ok) {
         if (response.status === 401) {
-          // Clear token if unauthorized
           localStorage.removeItem('token');
         }
         throw new Error(data.message || "Failed to fetch announcements");
@@ -35,9 +32,11 @@ export const announcementService = {
     }
   },
 
-  // Create new announcement (admin only)
+  // Create new announcement
   createAnnouncement: async (announcementData) => {
     try {
+      console.log('Creating announcement with data:', announcementData); // Debug log
+      
       const response = await fetch(`${API_URL}/announcements`, {
         method: 'POST',
         headers: getHeaders(),
@@ -47,17 +46,19 @@ export const announcementService = {
           content: announcementData.content,
           priority: announcementData.priority || 'medium',
           targetAudience: announcementData.targetAudience || 'all',
-          expiryDate: announcementData.expiryDate
+          status: announcementData.status || 'active',
+          userId: announcementData.userId
         }),
       });
 
       const data = await response.json();
+      console.log('Server response:', data); // Debug log
+
       if (!response.ok) {
         if (response.status === 401) {
-          // Clear token if unauthorized
           localStorage.removeItem('token');
         }
-        throw new Error(data.message || "Failed to create announcement");
+        throw new Error(data.message || data.error || "Failed to create announcement");
       }
       return data.data;
     } catch (error) {
@@ -66,7 +67,7 @@ export const announcementService = {
     }
   },
 
-  // Update announcement (admin only)
+  // Update announcement
   updateAnnouncement: async (announcementId, announcementData) => {
     try {
       const response = await fetch(`${API_URL}/announcements/${announcementId}`, {
@@ -79,17 +80,16 @@ export const announcementService = {
           priority: announcementData.priority,
           targetAudience: announcementData.targetAudience,
           status: announcementData.status,
-          expiryDate: announcementData.expiryDate
+          userId: announcementData.userId
         }),
       });
 
       const data = await response.json();
       if (!response.ok) {
         if (response.status === 401) {
-          // Clear token if unauthorized
           localStorage.removeItem('token');
         }
-        throw new Error(data.message || "Failed to update announcement");
+        throw new Error(data.message || data.error || "Failed to update announcement");
       }
       return data.data;
     } catch (error) {
@@ -98,7 +98,7 @@ export const announcementService = {
     }
   },
 
-  // Delete announcement (admin only)
+  // Delete announcement
   deleteAnnouncement: async (announcementId) => {
     try {
       const response = await fetch(`${API_URL}/announcements/${announcementId}`, {
@@ -110,10 +110,9 @@ export const announcementService = {
       const data = await response.json();
       if (!response.ok) {
         if (response.status === 401) {
-          // Clear token if unauthorized
           localStorage.removeItem('token');
         }
-        throw new Error(data.message || "Failed to delete announcement");
+        throw new Error(data.message || data.error || "Failed to delete announcement");
       }
       return data;
     } catch (error) {

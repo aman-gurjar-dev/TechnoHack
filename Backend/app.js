@@ -62,8 +62,18 @@ if (process.env.VERCEL !== "1") {
   });
 }
 
-// Serve static files from uploads directory
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Serve static files from uploads directory with proper MIME types
+app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.jpg') || path.endsWith('.jpeg')) {
+      res.set('Content-Type', 'image/jpeg');
+    } else if (path.endsWith('.png')) {
+      res.set('Content-Type', 'image/png');
+    } else if (path.endsWith('.gif')) {
+      res.set('Content-Type', 'image/gif');
+    }
+  }
+}));
 
 // MongoDB Connection with enhanced error handling and retry logic
 let cachedDb = null;
@@ -154,9 +164,11 @@ app.get("/", (req, res) => {
 const authRoutes = require("./routes/auth");
 const eventRoutes = require("./routes/events");
 const clubRoutes = require("./routes/clubs");
+const announcementRoutes = require("./routes/announcementRoutes");
 app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/clubs", clubRoutes);
+app.use("/api/announcements", announcementRoutes);
 
 // Error handling for undefined routes
 app.use((req, res) => {

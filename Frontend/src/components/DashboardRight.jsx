@@ -99,13 +99,21 @@ const DashboardRight = () => {
       setLoading(true);
       const clubs = await clubService.getAllClubs();
       const user = await authService.getCurrentUser();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
       const userClubs = clubs.filter(club => 
-        club.members.some(member => member.user._id === user._id)
+        club.members && club.members.some(member => 
+          member.user && member.user._id === user._id
+        )
       );
+      
       setJoinedClubs(userClubs);
     } catch (error) {
-      toast.error("Failed to fetch joined clubs");
       console.error("Error fetching joined clubs:", error);
+      toast.error(error.message || "Failed to fetch joined clubs");
     } finally {
       setLoading(false);
     }
